@@ -26,7 +26,7 @@ class Scraper():
             img_link = self.link+img_link
 
             return img_link
-
+        
         soup = BeautifulSoup(self.page.text, 'html.parser')
         currency_link = str()
         for i in range(len(tag_names)):
@@ -36,6 +36,24 @@ class Scraper():
                 currency_link = currency_link.find(tag_names[i])
 
         return format_link(str(currency_link))
+    
+
+    def retrieve_img(self, url) -> Image:
+        response = requests.get(url, verify=False)
+        img_data = response.content
+        img = Image.open(BytesIO(img_data))
+        return img
+
+    def download_currencies_images(self):
+
+        images: dict[str:Image] = {}
+
+        for currency in self.currencies_images:
+            url = self.currencies_images[currency]
+            img = self.retrieve_img(url=url)
+            images[currency] = img
+
+        return images
 
     def get_currency_price(self, tag_names: list, id: str) -> str:
         
@@ -68,3 +86,4 @@ class Scraper():
     def set_currencies_images(self, tag_names: list):
         for currency in self.currencies_images:
             self.currencies_images[currency] = self.get_currency_image(tag_names, currency)
+        self.currencies_images = self.download_currencies_images()
