@@ -1,19 +1,40 @@
+import csv
 import requests
 from bs4 import BeautifulSoup
 from PIL import Image
 from io import BytesIO
+from datetime import datetime
+#import ssl
+#import OpenSSL
 
 class Scraper():
 
     def __init__(self, link: str, currencies: list) -> None:
         self.link = link
+        #self.ssl_certificate = self.get_ssl_certificate(self.link)
+        self.page = None
+        self.connect_to_currencie_page()
         self.currencies: dict[str, int] = {}
         self.currencies_images: dict[str, str] = {}
         for currency in currencies:
             self.currencies[currency] = 0
             self.currencies_images[currency] = ''
-        self.page = None
-        self.connect_to_currencie_page()
+
+    '''def get_ssl_certificate(self,host):
+        # Establece una conexión SSL con el servidor
+        port=443
+        context = ssl.create_default_context()
+        conn = context.wrap_socket(socket.socket(socket.AF_INET), server_hostname=host)
+        conn.connect((host, port))
+
+        # Obtiene el certificado del servidor
+        cert = conn.getpeercert(binary_form=True)
+
+        # Convierte el certificado a un objeto X509 para facilitar su manejo
+        x509 = OpenSSL.crypto.load_certificate(OpenSSL.crypto.FILETYPE_ASN1, cert)
+
+        return x509
+'''
 
     def connect_to_currencie_page(self) -> None:
         self.page = requests.get(self.link, verify=False)
@@ -37,7 +58,6 @@ class Scraper():
 
         return format_link(str(currency_link))
     
-
     def retrieve_img(self, url) -> Image:
         response = requests.get(url, verify=False)
         img_data = response.content
@@ -83,7 +103,29 @@ class Scraper():
         for currency in self.currencies:
             self.currencies[currency] = self.get_currency_price(tag_names, currency)
 
-    def set_currencies_images(self, tag_names: list):
+    def set_currencies_images(self, tag_names: list):        
         for currency in self.currencies_images:
             self.currencies_images[currency] = self.get_currency_image(tag_names, currency)
         self.currencies_images = self.download_currencies_images()
+
+    def save_currencies_data(self) -> None:
+        # reading  the "prices.csv" file and creating it
+        # if not present
+        csv_file = open('prices.csv', 'w', encoding='utf-8', newline='')
+
+        # initializing the writer object to insert data
+        # in the CSV file
+        writer = csv.writer(csv_file)
+
+        # writing the header of the CSV file
+        csv_headers = ['DATE']
+        prices_row = [datetime.now().strftime("%d/%m/%Y")]
+        for currency in self.currencies:
+            csv_headers.append(currency.upper())
+            prices_row.append(float(self.currencies[currency]))
+
+        writer.writerow(csv_headers)
+        writer.writerow(prices_row)
+
+        # terminating the operation and releasing the resources
+        csv_file.close()
