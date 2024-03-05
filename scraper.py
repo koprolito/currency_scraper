@@ -1,17 +1,17 @@
 import csv
+import socket
 import requests
 from bs4 import BeautifulSoup
 from PIL import Image
 from io import BytesIO
 from datetime import datetime
-#import ssl
-#import OpenSSL
+import os
+import pandas as pd
 
 class Scraper():
 
     def __init__(self, link: str, currencies: list) -> None:
         self.link = link
-        #self.ssl_certificate = self.get_ssl_certificate(self.link)
         self.page = None
         self.connect_to_currencie_page()
         self.currencies: dict[str, int] = {}
@@ -19,22 +19,6 @@ class Scraper():
         for currency in currencies:
             self.currencies[currency] = 0
             self.currencies_images[currency] = ''
-
-    '''def get_ssl_certificate(self,host):
-        # Establece una conexión SSL con el servidor
-        port=443
-        context = ssl.create_default_context()
-        conn = context.wrap_socket(socket.socket(socket.AF_INET), server_hostname=host)
-        conn.connect((host, port))
-
-        # Obtiene el certificado del servidor
-        cert = conn.getpeercert(binary_form=True)
-
-        # Convierte el certificado a un objeto X509 para facilitar su manejo
-        x509 = OpenSSL.crypto.load_certificate(OpenSSL.crypto.FILETYPE_ASN1, cert)
-
-        return x509
-'''
 
     def connect_to_currencie_page(self) -> None:
         self.page = requests.get(self.link, verify=False)
@@ -97,7 +81,7 @@ class Scraper():
             else:
                 currency_price = currency_price.find(tag_names[i])
 
-        return format_price(str(currency_price))
+        return float(format_price(str(currency_price).replace(",",".")))
     
     def set_currencies_prices(self, tag_names: list):
         for currency in self.currencies:
@@ -109,23 +93,62 @@ class Scraper():
         self.currencies_images = self.download_currencies_images()
 
     def save_currencies_data(self) -> None:
-        # reading  the "prices.csv" file and creating it
-        # if not present
-        csv_file = open('prices.csv', 'w', encoding='utf-8', newline='')
+
+        def get_previous_prices() -> list[float]:
+            df = pd.read_csv('prices.csv', sep="|")
+            # Get last row
+            last_row = df.iloc[-1]
+            previous_prices: list[float] = []
+            for i in range(len(last_row)):
+                if i > 0:
+                    previous_prices.append(float(last_row.iloc[i]))
+            return previous_prices
+        
+        def compare_previous_prices(previous_prices:list[float],new_prices:list[float]) -> bool:
+            flag = False
+            for i in range(len(previous_prices)):
+                if previous_prices[i] != new_prices[i]:
+                    flag = True
+            return flag
+
+        csv_headers = None
+        new_file = False
+        # Creaes the file "prices.csv" if it does not already exists,
+        #if it does it opens it in appending mode
+        if not os.path.exists('prices.csv'):
+            csv_file = open('prices.csv', 'w', encoding='utf-8', newline='')
+
+             # writing the header of the CSV file
+            csv_headers = ['DATE,HOUR']
+            for currency in self.currencies:
+                csv_headers.append(currency.upper())
+            new_file = True
+        else:
+            csv_file = open('prices.csv', 'a', encoding='utf-8', newline='')
 
         # initializing the writer object to insert data
         # in the CSV file
-        writer = csv.writer(csv_file)
+        writer = csv.writer(csv_file, delimiter="|")
 
-        # writing the header of the CSV file
-        csv_headers = ['DATE']
-        prices_row = [datetime.now().strftime("%d/%m/%Y")]
+        # initialize a list that will contain the current date, current time and
+        # the prices of the currencies
+        prices_row = [f"{datetime.now().strftime("%d/%m/%Y")},{datetime.now().strftime("%H:%M")}"]
+        new_prices: list[float] = []
         for currency in self.currencies:
-            csv_headers.append(currency.upper())
-            prices_row.append(float(self.currencies[currency]))
+            currency_price = float(str(self.currencies[currency]).replace(",","."))
+            prices_row.append(currency_price)
+            new_prices.append(currency_price)
 
-        writer.writerow(csv_headers)
-        writer.writerow(prices_row)
+        # if the file has been created now, the write both its headers and
+        # the current prices of the currencies, else compare their previous prices
+        # with the new ones to know if there is any need to update the file with a new row
+        if new_file:
+            writer.writerow(csv_headers)        
+            writer.writerow(prices_row)
+        else:
+            previous_prices = get_previous_prices()
+            if compare_previous_prices(previous_prices=previous_prices, new_prices=new_prices):
+                writer.writerow(prices_row)
 
         # terminating the operation and releasing the resources
         csv_file.close()
