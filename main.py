@@ -1,5 +1,5 @@
 from scraper import Scraper
-from interface import Interface
+from desktop_interface import Interface
 
 if __name__ == '__main__':
     
