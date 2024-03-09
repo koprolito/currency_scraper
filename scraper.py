@@ -21,11 +21,21 @@ class Scraper():
             self.currencies_images[currency] = ''
 
     def connect_to_currencie_page(self) -> None:
+        '''Connects to the web page from which the prices and images are going
+        to be processed later.
+        
+        WARNING: the verify value of request.get DOES NOT use SSL verification 
+        in this phase of the project. 
+        Only connect to web pages that you consider trustful, otherwise you may expose
+        to \'man in the middle\' attacks under your own risk.'''
         self.page = requests.get(self.link, verify=False)
 
     def get_currency_image(self, tag_names: list, id: str) -> str:
+        '''Gets the images of the currencies in their respective web page.'''
         
         def format_link(currency_link: str) -> str:
+            '''Returns an str of the currency_link so that its format
+            is appropiate for an image request'''
             
             img_link = currency_link[currency_link.find('src=')+5:currency_link.find('png')+3]            
             img_link = self.link+img_link
@@ -43,12 +53,17 @@ class Scraper():
         return format_link(str(currency_link))
     
     def retrieve_img(self, url) -> Image:
+        '''Retrieves an image from a given URL and returns it as an Image object.'''
+
         response = requests.get(url, verify=False)
         img_data = response.content
         img = Image.open(BytesIO(img_data))
         return img
 
-    def download_currencies_images(self):
+    def download_currencies_images(self) -> dict[str:Image]:
+        ''''Downloads the images of a currencies in their respective web page 
+        and returns a dictionary of structure 
+        str (name of the currency): Image (an Image object of the currency)'''
 
         images: dict[str:Image] = {}
 
@@ -60,6 +75,9 @@ class Scraper():
         return images
 
     def get_currency_price(self, tag_names: list, id: str) -> str:
+        ''''Gets the prices of the currencies in their respective web page.
+        tag_names refers to a list of HTML tags of the web page that contains 
+        the value of an specific currency. The way the tags are listed matters.'''
         
         def format_price(currency_price: str) -> str:
             i = 0
@@ -84,17 +102,26 @@ class Scraper():
         return float(format_price(str(currency_price).replace(",",".")))
     
     def set_currencies_prices(self, tag_names: list):
+        '''Sets the values of the prices for the currencies that are listed in self.currencies.
+        For this, it takes all the prices of the currencies in their respective web page (as
+        it has to be set while intializing the object).''' 
         for currency in self.currencies:
             self.currencies[currency] = self.get_currency_price(tag_names, currency)
 
-    def set_currencies_images(self, tag_names: list):        
+    def set_currencies_images(self, tag_names: list) -> None: 
+        '''Sets the images for the currencies that are listed in self.currencies. For
+        this, it takes all the images of the currencies in their respective web page (as
+        it has to be set while intializing the object).'''       
         for currency in self.currencies_images:
             self.currencies_images[currency] = self.get_currency_image(tag_names, currency)
         self.currencies_images = self.download_currencies_images()
 
     def save_currencies_data(self) -> None:
+        '''Saves the prices of the currencies in the prices.csv file'''
 
         def get_previous_prices() -> list[float]:
+            '''Returns the last price registered in the prices.csv file'''
+
             df = pd.read_csv('prices.csv', sep="|")
             # Get last row
             last_row = df.iloc[-1]
@@ -105,6 +132,10 @@ class Scraper():
             return previous_prices
         
         def compare_previous_prices(previous_prices:list[float],new_prices:list[float]) -> bool:
+            '''Compares a given previous prices list of float values with a new prices list.
+             
+              If there is one single price in previous prices
+              that does not match with the new prices it returns True, otherwise returns False '''
             flag = False
             for i in range(len(previous_prices)):
                 if previous_prices[i] != new_prices[i]:
