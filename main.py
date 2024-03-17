@@ -17,9 +17,9 @@ if __name__ == '__main__':
     
     scraper.set_currencies_prices(['div', 'strong'])
     scraper.save_currencies_data()
-    #print(scraper.currencies)
+    print(scraper.currencies)
 
-    scraper.set_currencies_images(['div', 'img'])
+'''    scraper.set_currencies_images(['div', 'img'])
 
     window = Interface('Bs.',scraper.currencies,scraper.currencies_images)
-    window.root.mainloop()
+    window.root.mainloop()'''

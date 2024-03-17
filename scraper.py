@@ -1,5 +1,4 @@
 import csv
-import socket
 import requests
 from bs4 import BeautifulSoup
 from PIL import Image
@@ -116,31 +115,31 @@ class Scraper():
             self.currencies_images[currency] = self.get_currency_image(tag_names, currency)
         self.currencies_images = self.download_currencies_images()
 
+    def get_previous_prices(self) -> list[float]:
+        '''Returns the last price registered in the prices.csv file'''
+
+        df = pd.read_csv('prices.csv', sep="|")
+        # Get last row
+        last_row = df.iloc[-1]
+        previous_prices: list[float] = []
+        for i in range(len(last_row)):
+            if i > 0:
+                previous_prices.append(float(last_row.iloc[i]))
+        return previous_prices        
+    
+    def compare_previous_prices(self,previous_prices:list[float],new_prices:list[float]) -> bool:
+        '''Compares a given previous prices list of float values with a new prices list.
+            
+            If there is one single price in previous prices
+            that does not match with the new prices it returns True, otherwise returns False '''
+        flag = False
+        for i in range(len(previous_prices)):
+            if previous_prices[i] != new_prices[i]:
+                flag = True
+        return flag
+    
     def save_currencies_data(self) -> None:
         '''Saves the prices of the currencies in the prices.csv file'''
-
-        def get_previous_prices() -> list[float]:
-            '''Returns the last price registered in the prices.csv file'''
-
-            df = pd.read_csv('prices.csv', sep="|")
-            # Get last row
-            last_row = df.iloc[-1]
-            previous_prices: list[float] = []
-            for i in range(len(last_row)):
-                if i > 0:
-                    previous_prices.append(float(last_row.iloc[i]))
-            return previous_prices
-        
-        def compare_previous_prices(previous_prices:list[float],new_prices:list[float]) -> bool:
-            '''Compares a given previous prices list of float values with a new prices list.
-             
-              If there is one single price in previous prices
-              that does not match with the new prices it returns True, otherwise returns False '''
-            flag = False
-            for i in range(len(previous_prices)):
-                if previous_prices[i] != new_prices[i]:
-                    flag = True
-            return flag
 
         csv_headers = None
         new_file = False
@@ -177,8 +176,8 @@ class Scraper():
             writer.writerow(csv_headers)        
             writer.writerow(prices_row)
         else:
-            previous_prices = get_previous_prices()
-            if compare_previous_prices(previous_prices=previous_prices, new_prices=new_prices):
+            previous_prices = self.get_previous_prices()
+            if self.compare_previous_prices(previous_prices=previous_prices, new_prices=new_prices):
                 writer.writerow(prices_row)
 
         # terminating the operation and releasing the resources
